@@ -12,7 +12,11 @@ spec:
   project: default
   source:
     path: gitops
-    repoURL: https://github.com/hendrikmaus/argo-cd-app-of-apps
+    repoURL: https://github.com/jlmayorga/quarkus-demo-cicd.git
     targetRevision: HEAD
+    directory:
+      recurse: true
   syncPolicy:
-    automated: {}
+    automated: 
+      prune: false
+      selfHeal: true
