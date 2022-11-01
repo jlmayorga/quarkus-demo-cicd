@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quarkus-demo-kustomize-dev
+spec:
+  destination:
+    name: ''
+    namespace: kustomize-development
+    server: 'https://kubernetes.default.svc'
+  source:
+    path: kustomize/overlays/development
+    repoURL: 'https://github.com/jlmayorga/quarkus-demo-config.git'
+    targetRevision: HEAD
+  project: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quarkus-demo-helm-staging
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    chart: quarkus-demo
+    #repoURL: https://github.com/jlmayorga/quarkus-demo-config
+    repoURL: https://jlmayorga.github.io/quarkus-demo-config/
+    #path: charts/quarkus-demo
+    targetRevision: 2.0.0
+    helm:
+      releaseName: quarkus-demo
+      valueFiles:
+        - "values/staging/values.yaml"
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: helm-staging
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
