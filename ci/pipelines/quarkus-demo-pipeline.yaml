@@ -5,7 +5,7 @@ metadata:
   namespace: cicd
 spec:
   tasks:
-  - name: git-clone
+  - name: clone-code-repository
     params:
     - name: url
       value: https://github.com/jlmayorga/quarkus-demo.git
@@ -31,7 +31,7 @@ spec:
     workspaces:
     - name: output
       workspace: workspace
-  - name: maven
+  - name: build-project
     params:
     - name: MAVEN_IMAGE
       value: image-registry.openshift-image-registry.svc:5000/openshift/java:latest
@@ -47,7 +47,7 @@ spec:
     - name: CONTEXT_DIR
       value: .
     runAfter:
-    - git-clone
+    - clone-code-repository
     taskRef:
       kind: ClusterTask
       name: maven
@@ -56,10 +56,32 @@ spec:
       workspace: workspace
     - name: maven-settings
       workspace: workspace
-  - name: buildah
+  - name: run-tests
+    params:
+    - name: MAVEN_IMAGE
+      value: image-registry.openshift-image-registry.svc:5000/openshift/java:latest
+    - name: GOALS
+      value:
+      - --batch-mode
+      - test
+    - name: PROXY_PROTOCOL
+      value: http
+    - name: CONTEXT_DIR
+      value: .
+    runAfter:
+    - clone-code-repository
+    taskRef:
+      kind: ClusterTask
+      name: maven
+    workspaces:
+    - name: source
+      workspace: workspace
+    - name: maven-settings
+      workspace: workspace
+  - name: build-container-image
     params:
     - name: IMAGE
-      value: quay.io/jmayorgarh/quarkus-demo:$(tasks.git-clone.results.commit)
+      value: quay.io/jmayorgarh/quarkus-demo:$(tasks.clone-code-repository.results.commit)
     - name: BUILDER_IMAGE
       value: registry.redhat.io/rhel8/buildah@sha256:0a86ecbdfbe86e9d225b7fe4b090a0dd6d323f8afdfdf2bd933ff223ddb53320
     - name: STORAGE_DRIVER
@@ -75,14 +97,15 @@ spec:
     - name: SKIP_PUSH
       value: "false"
     runAfter:
-    - maven
+    - build-project
+    - run-tests
     taskRef:
       kind: ClusterTask
       name: buildah
     workspaces:
     - name: source
       workspace: workspace
-  - name: git-clone-config
+  - name: clone-config-repository
     params:
     - name: BASE_IMAGE
       value: docker.io/alpine/git:v2.26.2@sha256:23618034b0be9205d9cc0846eb711b12ba4c9b468efdd8a59aac1d7b1a23363f
@@ -99,30 +122,30 @@ spec:
     - name: VERBOSE
       value: "true"
     runAfter:
-    - buildah
+    - build-container-image
     taskRef:
       kind: ClusterTask
       name: git-cli
     workspaces:
     - name: source
       workspace: workspace
-  - name: kustomize-update-image-tag
+  - name: update-image-tag
     params:
     - name: KUSTOMIZATION_PATH
       value: kustomize/overlays/development
     - name: IMAGE_NAME
       value: quay.io/jmayorgarh/quarkus-demo
     - name: IMAGE_TAG
-      value: $(tasks.git-clone.results.commit)
+      value: $(tasks.clone-code-repository.results.commit)
     runAfter:
-    - git-clone-config
+    - clone-config-repository
     taskRef:
       kind: Task
       name: kustomize-update-image-tag
     workspaces:
     - name: workspace
       workspace: workspace
-  - name: git-cli
+  - name: push-changes
     params:
     - name: BASE_IMAGE
       value: docker.io/alpine/git:v2.26.2@sha256:23618034b0be9205d9cc0846eb711b12ba4c9b468efdd8a59aac1d7b1a23363f
@@ -133,17 +156,15 @@ spec:
     - name: GIT_SCRIPT
       value: |-
         cd config
-
-        git status
         git add  .
-        git commit -m "Update container image tag"
+        git commit -m "[CI] Update container image tag"
         git push
     - name: USER_HOME
       value: /tekton/home
     - name: VERBOSE
       value: "true"
     runAfter:
-    - kustomize-update-image-tag
+    - update-image-tag
     taskRef:
       kind: ClusterTask
       name: git-cli
