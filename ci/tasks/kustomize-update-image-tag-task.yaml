@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kustomize-update-image-tag
+  namespace: cicd
+spec:
+  params:
+  - name: KUSTOMIZATION_PATH
+    type: string
+  - name: IMAGE_NAME
+    type: string
+  - name: IMAGE_TAG
+    type: string
+  steps:
+  - image: k8s.gcr.io/kustomize/kustomize:v3.8.7
+    name: update-image-tag
+    script: |
+      pwd
+
+      ls -lrtah
+
+      cd config/$(params.KUSTOMIZATION_PATH)
+
+      ls -lrtah
+
+      /app/kustomize edit set image $(params.IMAGE_NAME):$(params.IMAGE_TAG)
+
+      echo "######################"
+      echo "#### Kustomization ###"
+      echo "######################"
+
+      cat kustomization.yaml
+    workingDir: $(workspaces.workspace.path)
+  workspaces:
+  - description: The workspace
+    name: workspace
